@@ -1,5 +1,5 @@
 """
-Anime Downloader - Utilidades y funciones auxiliares
+Anime Downloader - Utilidades y funciones auxiliares (Versión Corregida)
 Contiene funciones de apoyo para el proyecto
 """
 
@@ -147,9 +147,18 @@ def format_bytes(bytes_value):
     if bytes_value == 0:
         return "0 B"
     
+    # Manejar valores None o string
+    try:
+        bytes_value = float(bytes_value)
+    except (ValueError, TypeError):
+        return "Unknown size"
+    
+    if bytes_value < 0:
+        return "0 B"
+    
     units = ['B', 'KB', 'MB', 'GB', 'TB']
     unit_index = 0
-    size = float(bytes_value)
+    size = bytes_value
     
     while size >= 1024 and unit_index < len(units) - 1:
         size /= 1024
@@ -168,6 +177,11 @@ def format_duration(seconds):
         str: Duración formateada
     """
     if not seconds or seconds < 0:
+        return "00:00"
+    
+    try:
+        seconds = int(float(seconds))
+    except (ValueError, TypeError):
         return "00:00"
     
     hours = int(seconds // 3600)
@@ -261,7 +275,7 @@ def create_directory_structure(base_path, anime_name, season=None):
     return full_path
 
 class ProgressHook:
-    """Clase para manejar el progreso de descarga"""
+    """Clase para manejar el progreso de descarga (Versión Corregida)"""
     
     def __init__(self, callback=None):
         """
@@ -290,45 +304,69 @@ class ProgressHook:
         
         status = data.get('status')
         
-        if status == 'downloading':
-            progress_data = {
-                'status': 'downloading',
-                'filename': data.get('filename', ''),
-                'downloaded_bytes': data.get('downloaded_bytes', 0),
-                'total_bytes': data.get('total_bytes') or data.get('total_bytes_estimate', 0),
-                'speed': data.get('speed', 0),
-                'eta': data.get('eta', 0),
-            }
-            
-            # Calcular porcentaje
-            if progress_data['total_bytes'] > 0:
-                progress_data['percentage'] = (
-                    progress_data['downloaded_bytes'] / progress_data['total_bytes'] * 100
-                )
-            else:
-                progress_data['percentage'] = 0
-                
-        elif status == 'finished':
-            progress_data = {
-                'status': 'finished',
-                'filename': data.get('filename', ''),
-                'total_bytes': data.get('total_bytes', 0),
-                'percentage': 100,
-            }
-            
-        elif status == 'error':
-            progress_data = {
-                'status': 'error',
-                'error': str(data.get('error', 'Error desconocido')),
-                'percentage': 0,
-            }
-        else:
-            return  # Estado no reconocido
-            
         try:
+            if status == 'downloading':
+                # Obtener valores y convertir a números de forma segura
+                downloaded_bytes = self._safe_float(data.get('downloaded_bytes', 0))
+                total_bytes = self._safe_float(data.get('total_bytes') or data.get('total_bytes_estimate', 0))
+                speed = self._safe_float(data.get('speed', 0))
+                eta = self._safe_float(data.get('eta', 0))
+                
+                progress_data = {
+                    'status': 'downloading',
+                    'filename': str(data.get('filename', '')),
+                    'downloaded_bytes': downloaded_bytes,
+                    'total_bytes': total_bytes,
+                    'speed': speed,
+                    'eta': eta,
+                }
+                
+                # Calcular porcentaje de forma segura
+                if total_bytes > 0:
+                    progress_data['percentage'] = min((downloaded_bytes / total_bytes * 100), 100)
+                else:
+                    progress_data['percentage'] = 0
+                    
+            elif status == 'finished':
+                total_bytes = self._safe_float(data.get('total_bytes', 0))
+                progress_data = {
+                    'status': 'finished',
+                    'filename': str(data.get('filename', '')),
+                    'total_bytes': total_bytes,
+                    'percentage': 100,
+                }
+                
+            elif status == 'error':
+                progress_data = {
+                    'status': 'error',
+                    'error': str(data.get('error', 'Error desconocido')),
+                    'percentage': 0,
+                }
+            else:
+                return  # Estado no reconocido
+                
+            # Llamar al callback de forma segura
             self.callback(progress_data)
+            
         except Exception as e:
             logging.error(f"Error en callback de progreso: {e}")
+    
+    def _safe_float(self, value):
+        """
+        Convierte un valor a float de forma segura
+        
+        Args:
+            value: Valor a convertir
+            
+        Returns:
+            float: Valor convertido o 0 si falla
+        """
+        try:
+            if value is None:
+                return 0.0
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0
 
 def retry_on_failure(max_retries=3, delay=1, backoff=2):
     """
