@@ -1,0 +1,209 @@
+# Anime Downloader - .gitignore
+
+# === Archivos de Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# === Entornos Virtuales ===
+anime-downloader-env/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# === Archivos de Configuración Local ===
+config_local.py
+.env
+.env.local
+.env.production
+.env.staging
+
+# === Logs ===
+*.log
+logs/
+anime-downloader.log
+download.log
+
+# === Archivos Temporales ===
+*.tmp
+*.temp
+.cache/
+temp/
+tmp/
+
+# === Archivos de Descarga ===
+# Ignorar archivos descargados para no llenar el repo
+Downloads/
+Anime/
+downloads/
+*.mp4
+*.mkv
+*.avi
+*.webm
+*.m4v
+*.flv
+*.mov
+*.wmv
+
+# Subtítulos
+*.srt
+*.ass
+*.vtt
+*.sub
+
+# Miniaturas
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.thumbnail
+
+# Metadata
+*.json
+*.info.json
+
+# === Archivos del Sistema ===
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# === IDEs y Editores ===
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# === Testing ===
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# === Jupyter Notebooks ===
+.ipynb_checkpoints
+
+# === Documentación ===
+docs/_build/
+.readthedocs.yml
+
+# === Base de Datos ===
+*.db
+*.sqlite
+*.sqlite3
+
+# === Archivos de Backup ===
+*.bak
+*.backup
+*.orig
+
+# === Distribución ===
+*.deb
+*.rpm
+*.dmg
+*.exe
+*.msi
+
+# === Archivos de PyInstaller ===
+*.spec
+
+# === Archivos específicos del proyecto ===
+# Configuración de usuario personalizada
+user_config.py
+custom_sites.py
+
+# Archivos de prueba temporales
+test_downloads/
+test_files/
+
+# Scripts personalizados de usuario
+my_*.py
+user_*.py
+
+# === Variables de entorno específicas ===
+.anime_downloader_env
+
+# === Archivos de certificados (si se usan) ===
+*.pem
+*.key
+*.crt
+*.cert
+
+# === Archivos de cookies (si se implementan) ===
+cookies.txt
+*.cookies
+
+# === Archivos de sesión ===
+session_*.pkl
+*.session
+
+# === Archivos de lock ===
+*.lock
+.lock
+
+# === FFmpeg binarios (si se incluyen) ===
+ffmpeg/
+ffmpeg.exe
+ffprobe.exe
