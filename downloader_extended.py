@@ -16,6 +16,12 @@ from config import Config
 
 # Intentar importar extractores personalizados
 try:
+    from extractors.animeflv import AnimeFLVExtractor
+    ANIMEFLV_AVAILABLE = True
+except ImportError:
+    ANIMEFLV_AVAILABLE = False
+    logging.warning("Extractor de AnimeFLV no disponible")
+try:
     from extractors.jkanime import JKAnimeExtractor
     JKANIME_AVAILABLE = True
 except ImportError:
