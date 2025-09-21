@@ -1,15 +1,3 @@
-# 🎌 Anime Downloader
-
-[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/TU_USUARIO/anime-downloader.svg)](https://github.com/TU_USUARIO/anime-downloader/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/TU_USUARIO/anime-downloader.svg)](https://github.com/TU_USUARIO/anime-downloader/network)
-[![GitHub issues](https://img.shields.io/github/issues/TU_USUARIO/anime-downloader.svg)](https://github.com/TU_USUARIO/anime-downloader/issues)
-
-Un downloader de anime simple, eficiente y fácil de usar con interfaz gráfica y soporte para múltiples sitios incluyendo JKAnime.
-
-![Demo](https://via.placeholder.com/800x400/1a1a1a/ffffff?text=Anime+Downloader+Demo)
-
 ## ✨ Características Principales
 
 - 🎥 **Múltiples calidades**: 480p, 720p, 1080p y la mejor disponible
@@ -28,7 +16,7 @@ Un downloader de anime simple, eficiente y fácil de usar con interfaz gráfica 
 ### Opción 1: Script Automático (Recomendado)
 
 ```bash
-[git clone https://github.com/davidrhx/anime_downloader]
+git clone https://github.com/davidrhx/anime_downloader
 cd anime_downloader
 chmod +x install.sh
 ./install.sh
