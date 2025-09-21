@@ -27,3 +27,4 @@ git clone https://github.com/TU_USUARIO/anime-downloader.git
 cd anime-downloader
 chmod +x install.sh
 ./install.sh
+Opción 2: Instalación Manual
