@@ -1,156 +1,68 @@
 """
-Anime Downloader - Lógica principal de descarga (Versión Final)
-Maneja la descarga de episodios sin errores de callback
+Anime Downloader Extended - Versión con soporte para sitios de anime específicos
+Incluye el downloader original + extractores para sitios como JKAnime
 """
 
 import os
 import time
-import requests
 import logging
 from pathlib import Path
 from urllib.parse import urlparse
-from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
 
-from utils import (
-    clean_filename, extract_video_info, 
-    check_disk_space, format_bytes
-)
+from downloader import AnimeDownloader as BaseDownloader
+from utils import clean_filename, format_bytes
 from config import Config
 
-class SafeProgressHook:
-    """Hook de progreso completamente seguro"""
-    
-    def __init__(self, callback=None):
-        self.callback = callback
-        self.last_update = 0
-        
-    def __call__(self, data):
-        """Método call para el hook"""
-        if not self.callback:
-            return
-            
-        try:
-            # Limitar frecuencia de actualizaciones
-            current_time = time.time()
-            if current_time - self.last_update < 1.0:  # Solo cada 1 segundo
-                return
-            self.last_update = current_time
-            
-            status = data.get('status', 'unknown')
-            
-            if status == 'downloading':
-                # Obtener valores de forma ultra-segura
-                try:
-                    downloaded = float(data.get('downloaded_bytes', 0))
-                except (ValueError, TypeError):
-                    downloaded = 0.0
-                    
-                try:
-                    total = float(data.get('total_bytes') or data.get('total_bytes_estimate', 0))
-                except (ValueError, TypeError):
-                    total = 0.0
-                
-                try:
-                    speed = float(data.get('speed', 0))
-                except (ValueError, TypeError):
-                    speed = 0.0
-                
-                # Calcular porcentaje
-                if total > 0:
-                    percentage = min((downloaded / total) * 100, 100)
-                else:
-                    percentage = 0
-                
-                progress_data = {
-                    'status': 'downloading',
-                    'percentage': percentage,
-                    'downloaded_bytes': int(downloaded),
-                    'total_bytes': int(total),
-                    'speed': int(speed),
-                    'filename': str(data.get('filename', '')),
-                }
-                
-            elif status == 'finished':
-                progress_data = {
-                    'status': 'finished',
-                    'percentage': 100,
-                    'filename': str(data.get('filename', '')),
-                }
-            else:
-                return  # Ignorar otros estados
-            
-            # Llamar callback
-            self.callback(progress_data)
-            
-        except Exception as e:
-            # Silenciar errores del callback para no afectar la descarga
-            logging.debug(f"Error en callback (ignorado): {e}")
+# Intentar importar extractores personalizados
+try:
+    from extractors.jkanime import JKAnimeExtractor
+    JKANIME_AVAILABLE = True
+except ImportError:
+    JKANIME_AVAILABLE = False
+    logging.warning("Extractor de JKAnime no disponible")
 
-class AnimeDownloader:
-    """Clase principal para manejar descargas de anime sin errores"""
+class ExtendedAnimeDownloader(BaseDownloader):
+    """Downloader extendido con soporte para sitios de anime específicos"""
     
-    def __init__(self, output_path=None, quality='720p', max_retries=3, concurrent_downloads=1):
+    def __init__(self, output_path=None, quality='720p', max_retries=3):
         """
-        Inicializa el downloader
+        Inicializa el downloader extendido
         
         Args:
             output_path (str): Ruta donde guardar las descargas
             quality (str): Calidad de video preferida
             max_retries (int): Número máximo de reintentos
-            concurrent_downloads (int): Descargas simultáneas
         """
-        self.output_path = Path(output_path or Config.DOWNLOAD_PATH).expanduser().resolve()
-        self.quality = quality
-        self.max_retries = max_retries
-        self.concurrent_downloads = max(1, min(concurrent_downloads, 2))
-        self.logger = logging.getLogger(__name__)
+        super().__init__(output_path, quality, max_retries, 1)
         
-        # Crear directorio de salida
-        self.output_path.mkdir(parents=True, exist_ok=True)
+        # Inicializar extractores personalizados
+        self.custom_extractors = {}
         
-        # Log de configuración
-        self.logger.info(f"Downloader inicializado - Calidad: {quality}, Rate Limiting: {Config.USE_RATE_LIMITING}")
+        if JKANIME_AVAILABLE:
+            self.custom_extractors['jkanime'] = JKAnimeExtractor()
+            self.logger.info("✅ Extractor de JKAnime cargado")
         
-    def _get_safe_ydl_config(self, enable_subtitles=False):
-        """Configuración ultra-segura para yt-dlp"""
-        config = {
-            # Formato básico
-            'format': f'best[height<={self.quality[:-1] if self.quality.endswith("p") else "720"}]',
-            'outtmpl': str(self.output_path / '%(title)s.%(ext)s'),
-            
-            # Desactivar todo lo que puede causar problemas
-            'writesubtitles': enable_subtitles,
-            'writeautomaticsub': False,
-            'writethumbnail': False,
-            'writeinfojson': False,
-            'embed_subs': False,
-            
-            # Configuración de red conservadora
-            'socket_timeout': 30,
-            'retries': 3,
-            'ignoreerrors': True,
-            'no_warnings': False,
-            
-            # Rate limiting
-            'sleep_interval': 1,
-            'max_sleep_interval': 5,
-            
-            # Headers básicos
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            },
-            
-            # Evitar problemas con el progreso
-            'noprogress': False,
-            'quiet': False,
-        }
+        self.logger.info(f"Downloader extendido inicializado con {len(self.custom_extractors)} extractores personalizados")
+    
+    def can_handle_url(self, url):
+        """
+        Verifica qué extractor puede manejar la URL
         
-        return config
-        
+        Args:
+            url (str): URL a verificar
+            
+        Returns:
+            str: Nombre del extractor que puede manejar la URL, o None
+        """
+        for name, extractor in self.custom_extractors.items():
+            if extractor.can_handle(url):
+                return name
+        return None
+    
     def download_episode(self, url, progress_callback=None, enable_subtitles=False):
         """
-        Descarga un episodio individual sin errores de callback
+        Descarga un episodio usando el extractor apropiado
         
         Args:
             url (str): URL del episodio
@@ -160,162 +72,224 @@ class AnimeDownloader:
         Returns:
             bool: True si la descarga fue exitosa
         """
-        self.logger.info(f"Iniciando descarga de: {url}")
+        # Verificar si tenemos un extractor personalizado para esta URL
+        extractor_name = self.can_handle_url(url)
         
-        # Verificar espacio en disco
-        if not self._check_available_space():
+        if extractor_name:
+            self.logger.info(f"🎌 Usando extractor personalizado: {extractor_name}")
+            return self._download_with_custom_extractor(url, extractor_name, progress_callback)
+        else:
+            self.logger.info("🔄 Usando extractor estándar (yt-dlp)")
+            return super().download_episode(url, progress_callback, enable_subtitles)
+    
+    def _download_with_custom_extractor(self, url, extractor_name, progress_callback=None):
+        """
+        Descarga usando un extractor personalizado
+        
+        Args:
+            url (str): URL del episodio
+            extractor_name (str): Nombre del extractor a usar
+            progress_callback (callable): Función callback para progreso
+            
+        Returns:
+            bool: True si la descarga fue exitosa
+        """
+        try:
+            extractor = self.custom_extractors[extractor_name]
+            self.logger.info(f"Iniciando descarga con {extractor_name}: {url}")
+            
+            # Verificar espacio en disco
+            if not self._check_available_space():
+                return False
+            
+            # Extraer información del video
+            video_info = extractor.extract_video_info(url)
+            
+            if not video_info:
+                self.logger.error(f"No se pudo extraer información usando {extractor_name}")
+                return False
+            
+            # Mostrar información extraída
+            self.logger.info(f"Título: {video_info.get('title', 'Desconocido')}")
+            if video_info.get('description'):
+                self.logger.info(f"Descripción: {video_info['description'][:100]}...")
+            
+            video_urls = video_info.get('video_urls', [])
+            self.logger.info(f"URLs de video encontradas: {len(video_urls)}")
+            
+            if not video_urls:
+                self.logger.error("No se encontraron URLs de video válidas")
+                return False
+            
+            # Intentar descarga con cada URL
+            for attempt in range(self.max_retries):
+                try:
+                    self.logger.info(f"Intento {attempt + 1} de {self.max_retries}")
+                    
+                    if attempt > 0:
+                        wait_time = min(2 ** attempt, 10)
+                        self.logger.info(f"Esperando {wait_time} segundos...")
+                        time.sleep(wait_time)
+                    
+                    # Usar el método de descarga del extractor
+                    success = extractor.download_video(
+                        video_info, 
+                        str(self.output_path), 
+                        progress_callback
+                    )
+                    
+                    if success:
+                        self.logger.info("✅ Descarga completada exitosamente con extractor personalizado")
+                        return True
+                    
+                except Exception as e:
+                    self.logger.error(f"Error en intento {attempt + 1}: {e}")
+                    if attempt < self.max_retries - 1:
+                        continue
+            
+            # Si el extractor personalizado falla, intentar con yt-dlp como fallback
+            self.logger.warning(f"Extractor {extractor_name} falló, intentando con yt-dlp...")
+            return self._fallback_download(video_urls, video_info, progress_callback)
+            
+        except Exception as e:
+            self.logger.error(f"Error con extractor personalizado {extractor_name}: {e}")
             return False
+    
+    def _fallback_download(self, video_urls, video_info, progress_callback=None):
+        """
+        Intenta descargar usando yt-dlp como fallback
         
-        # Obtener configuración
-        ydl_opts = self._get_safe_ydl_config(enable_subtitles)
+        Args:
+            video_urls (list): Lista de URLs de video
+            video_info (dict): Información del video
+            progress_callback (callable): Función de callback
+            
+        Returns:
+            bool: True si la descarga fue exitosa
+        """
+        self.logger.info("Intentando descarga de fallback con yt-dlp...")
         
-        # Configurar progreso solo si es necesario
-        if progress_callback:
-            # Usar nuestro hook seguro
-            safe_hook = SafeProgressHook(progress_callback)
-            ydl_opts['progress_hooks'] = [safe_hook]
-            self.logger.info("Hook de progreso configurado")
-        else:
-            # Sin progreso para evitar errores
-            ydl_opts['noprogress'] = True
-        
-        if enable_subtitles:
-            self.logger.info("Modo con subtítulos activado (puede causar rate limiting)")
-        else:
-            self.logger.info("Modo seguro activado (sin subtítulos)")
-        
-        # Intentar descarga con reintentos
-        for attempt in range(self.max_retries):
+        for i, url in enumerate(video_urls[:3]):  # Intentar máximo 3 URLs
             try:
-                self.logger.info(f"Intento {attempt + 1} de {self.max_retries}")
+                self.logger.info(f"Probando URL de fallback {i+1}: {url}")
                 
-                # Pausa entre intentos
-                if attempt > 0:
-                    wait_time = min(2 ** attempt, 10)
-                    self.logger.info(f"Esperando {wait_time} segundos antes del intento...")
-                    time.sleep(wait_time)
+                ydl_opts = {
+                    'outtmpl': str(self.output_path / f"{video_info['title']}.%(ext)s"),
+                    'format': 'best',
+                    'ignoreerrors': True,
+                    'socket_timeout': 30,
+                    'retries': 2,
+                    'http_headers': {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Referer': 'https://jkanime.net/',
+                    }
+                }
+                
+                if progress_callback:
+                    from downloader import SafeProgressHook
+                    safe_hook = SafeProgressHook(progress_callback)
+                    ydl_opts['progress_hooks'] = [safe_hook]
                 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    # Extraer información primero (sin callback)
-                    try:
-                        info_opts = self._get_safe_ydl_config(False)
-                        info_opts['quiet'] = True
-                        info_opts['noprogress'] = True
-                        
-                        with yt_dlp.YoutubeDL(info_opts) as info_ydl:
-                            info = info_ydl.extract_info(url, download=False)
-                        
-                        if info:
-                            title = clean_filename(info.get('title', 'Unknown'))
-                            duration = info.get('duration', 0)
-                            filesize = info.get('filesize') or info.get('filesize_approx', 0)
-                            
-                            self.logger.info(f"Título: {title}")
-                            if duration:
-                                self.logger.info(f"Duración: {duration//60}:{duration%60:02d}")
-                            if filesize:
-                                self.logger.info(f"Tamaño aproximado: {format_bytes(filesize)}")
-                        
-                        # Pausa antes de descarga
-                        time.sleep(1)
-                        
-                    except Exception as e:
-                        self.logger.warning(f"No se pudo obtener información previa: {e}")
-                    
-                    # Realizar descarga
                     ydl.download([url])
-                    
-                self.logger.info("✅ Descarga completada exitosamente")
+                
+                self.logger.info("✅ Descarga de fallback exitosa")
                 return True
                 
-            except yt_dlp.DownloadError as e:
-                error_msg = str(e)
-                
-                # Manejo específico de errores
-                if "429" in error_msg or "Too Many Requests" in error_msg:
-                    self.logger.error(f"Rate limiting detectado (intento {attempt + 1})")
-                    if attempt < self.max_retries - 1:
-                        wait_time = min(30 + (attempt * 10), 60)
-                        self.logger.info(f"Esperando {wait_time} segundos para evitar rate limiting...")
-                        time.sleep(wait_time)
-                elif "subtitles" in error_msg.lower() and enable_subtitles:
-                    self.logger.warning(f"Error con subtítulos, reintentando sin ellos")
-                    # En siguiente intento, sin subtítulos
-                    enable_subtitles = False
-                    ydl_opts = self._get_safe_ydl_config(False)
-                else:
-                    self.logger.error(f"Error de descarga (intento {attempt + 1}): {e}")
-                
-                if attempt < self.max_retries - 1:
-                    time.sleep(2)
-                
             except Exception as e:
-                self.logger.error(f"Error inesperado (intento {attempt + 1}): {e}")
-                if attempt < self.max_retries - 1:
-                    time.sleep(2)
+                self.logger.warning(f"Fallback URL {i+1} falló: {e}")
+                continue
         
-        self.logger.error("❌ Descarga falló después de todos los intentos")
+        self.logger.error("❌ Todas las opciones de descarga fallaron")
         return False
     
-    def download_episode_safe(self, url, progress_callback=None):
-        """Descarga en modo completamente seguro"""
-        return self.download_episode(url, progress_callback, enable_subtitles=False)
-    
-    def download_episode_with_subtitles(self, url, progress_callback=None):
-        """Descarga con subtítulos (riesgo de rate limiting)"""
-        self.logger.warning("Modo con subtítulos puede causar rate limiting")
-        return self.download_episode(url, progress_callback, enable_subtitles=True)
-    
-    def _check_available_space(self, min_space_gb=1):
-        """Verifica espacio en disco disponible"""
-        try:
-            available_space = check_disk_space(self.output_path)
-            min_space_bytes = min_space_gb * 1024**3
-            
-            if available_space < min_space_bytes:
-                self.logger.error(f"Espacio insuficiente en disco")
-                return False
-                
-            if available_space < float('inf'):
-                self.logger.info(f"Espacio disponible: {format_bytes(available_space)}")
-            else:
-                self.logger.info("Espacio disponible: verificación omitida")
-            return True
-            
-        except Exception as e:
-            self.logger.warning(f"No se pudo verificar el espacio en disco: {e}")
-            return True
-    
     def get_video_info(self, url):
-        """Obtiene información del video sin descargarlo"""
-        try:
-            # Configuración mínima solo para info
-            opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'socket_timeout': 15,
-                'ignoreerrors': True,
-                'noprogress': True,
-                'extract_flat': False,
-            }
+        """
+        Obtiene información del video usando el extractor apropiado
+        
+        Args:
+            url (str): URL del video
             
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=False)
+        Returns:
+            dict: Información del video
+        """
+        # Verificar si tenemos un extractor personalizado
+        extractor_name = self.can_handle_url(url)
+        
+        if extractor_name:
+            try:
+                self.logger.info(f"Obteniendo información con extractor: {extractor_name}")
+                extractor = self.custom_extractors[extractor_name]
+                info = extractor.extract_video_info(url)
+                
                 if info:
                     return {
-                        'title': clean_filename(info.get('title', 'Unknown')),
-                        'duration': info.get('duration', 0),
-                        'uploader': info.get('uploader', 'Unknown'),
-                        'upload_date': info.get('upload_date'),
+                        'title': info.get('title', 'Desconocido'),
                         'description': info.get('description', ''),
+                        'duration': info.get('duration', 0),
+                        'uploader': info.get('uploader', extractor_name),
                         'thumbnail': info.get('thumbnail'),
+                        'source': info.get('source', extractor_name),
+                        'video_urls_count': len(info.get('video_urls', []))
                     }
-        except Exception as e:
-            self.logger.error(f"Error obteniendo información del video: {e}")
-            return None
+            except Exception as e:
+                self.logger.error(f"Error obteniendo info con extractor personalizado: {e}")
+        
+        # Fallback al método estándar
+        return super().get_video_info(url)
     
-    def set_output_path(self, path):
-        """Actualiza la ruta de descarga"""
-        self.output_path = Path(path).expanduser().resolve()
-        self.output_path.mkdir(parents=True, exist_ok=True)
-        self.logger.info(f"Ruta de descarga actualizada a: {self.output_path}")
+    def list_supported_sites(self):
+        """
+        Lista los sitios soportados
+        
+        Returns:
+            dict: Diccionario con sitios soportados
+        """
+        supported = {
+            'standard': [
+                'youtube.com', 'youtu.be', 'vimeo.com', 
+                'dailymotion.com', 'twitch.tv', 'facebook.com'
+            ],
+            'custom_extractors': list(self.custom_extractors.keys())
+        }
+        
+        return supported
+
+# Función de conveniencia para crear el downloader extendido
+def create_extended_downloader(output_path=None, quality='720p', max_retries=3):
+    """
+    Crea una instancia del downloader extendido
+    
+    Args:
+        output_path (str): Ruta de descarga
+        quality (str): Calidad de video
+        max_retries (int): Número de reintentos
+        
+    Returns:
+        ExtendedAnimeDownloader: Instancia del downloader
+    """
+    return ExtendedAnimeDownloader(output_path, quality, max_retries)
+
+if __name__ == "__main__":
+    # Ejemplo de uso
+    downloader = create_extended_downloader()
+    
+    # Listar sitios soportados
+    supported = downloader.list_supported_sites()
+    print("Sitios soportados:")
+    print(f"  Estándar: {', '.join(supported['standard'])}")
+    print(f"  Extractores personalizados: {', '.join(supported['custom_extractors'])}")
+    
+    # Ejemplo de URL de JKAnime
+    jkanime_url = "https://jkanime.net/dandadan-2nd-season/12/"
+    
+    if downloader.can_handle_url(jkanime_url):
+        print(f"\n✅ Puede manejar: {jkanime_url}")
+        
+        # Obtener información
+        info = downloader.get_video_info(jkanime_url)
+        if info:
+            print(f"Título: {info['title']}")
+            print(f"Fuente: {info.get('source', 'N/A')}")
+    else:
+        print(f"\n❌ No puede manejar: {jkanime_url}")
