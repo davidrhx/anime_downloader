@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Anime Downloader - Aplicación principal extendida
+Anime Downloader - Aplicación principal extendida (Fixed)
 Permite descargar episodios de anime desde múltiples sitios incluyendo JKAnime
 """
 
@@ -137,16 +137,25 @@ Ejemplos de uso:
     print(f"📂 Destino: {output_path}")
     print("-" * 50)
     
-    # Inicializar downloader (extendido si está disponible)
-    downloader = AnimeDownloader(
-        output_path=str(output_path),
-        quality=args.quality,
-        max_retries=Config.MAX_RETRIES,
-        concurrent_downloads=1
-    )
-    
-    # Verificar qué tipo de sitio es
+    # Inicializar downloader con parámetros correctos según el tipo
     if EXTENDED_MODE:
+        # ExtendedAnimeDownloader solo acepta estos parámetros
+        downloader = AnimeDownloader(
+            output_path=str(output_path),
+            quality=args.quality,
+            max_retries=Config.MAX_RETRIES
+        )
+    else:
+        # AnimeDownloader estándar acepta concurrent_downloads
+        downloader = AnimeDownloader(
+            output_path=str(output_path),
+            quality=args.quality,
+            max_retries=Config.MAX_RETRIES,
+            concurrent_downloads=1
+        )
+    
+    # Verificar qué tipo de sitio es (solo en modo extendido)
+    if EXTENDED_MODE and hasattr(downloader, 'can_handle_url'):
         extractor_name = downloader.can_handle_url(args.url)
         if extractor_name:
             print(f"🎌 Sitio detectado: {extractor_name.upper()}")
@@ -204,6 +213,7 @@ def list_supported_sites():
     
     if EXTENDED_MODE:
         try:
+            # Crear downloader con parámetros correctos
             downloader = AnimeDownloader()
             supported = downloader.list_supported_sites()
             
@@ -240,7 +250,17 @@ def list_supported_sites():
         print("   - extractors/jkanime.py")
         print("   - downloader_extended.py")
     
-    print(f"\n💡 Total de extractores personalizados: {len(AnimeDownloader().custom_extractors) if EXTENDED_MODE else 0}")
+    # Mostrar número de extractores de manera segura
+    if EXTENDED_MODE:
+        try:
+            downloader = AnimeDownloader()
+            num_extractors = len(getattr(downloader, 'custom_extractors', {}))
+            print(f"\n💡 Total de extractores personalizados: {num_extractors}")
+        except:
+            print(f"\n💡 Total de extractores personalizados: 0")
+    else:
+        print(f"\n💡 Total de extractores personalizados: 0")
+    
     print("💡 Para más sitios, revisa: https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md")
 
 if __name__ == "__main__":
