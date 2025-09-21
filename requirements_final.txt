@@ -1,0 +1,35 @@
+# Anime Downloader - Dependencias
+# Instalación: pip install -r requirements.txt
+
+# Core dependencies para descarga
+yt-dlp>=2023.7.6
+requests>=2.31.0
+urllib3>=2.0.4
+
+# Web scraping y parsing (para JKAnime y otros extractores)
+beautifulsoup4>=4.12.2
+lxml>=4.9.3
+
+# Manejo de archivos y configuración
+PyYAML>=6.0.1
+
+# Utilidades adicionales
+tqdm>=4.65.0
+colorama>=0.4.6
+python-dateutil>=2.8.2
+
+# GUI dependencies (Tkinter viene incluido con Python en la mayoría de sistemas)
+# En algunos sistemas Linux puede requerirse: sudo apt-get install python3-tk
+
+# Opcional: Para funcionalidades avanzadas
+# pillow>=10.0.0          # Procesamiento de imágenes
+# ffmpeg-python>=0.2.0    # Manipulación de video (requiere ffmpeg instalado)
+
+# Development/Testing (descomenta si planeas contribuir)
+# pytest>=7.4.0
+# pytest-cov>=4.1.0
+# black>=23.7.0
+# flake8>=6.0.0
+
+# Para crear ejecutables (opcional)
+# pyinstaller>=5.13.0
