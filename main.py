@@ -130,4 +130,118 @@ Ejemplos de uso:
     
     # Crear directorio de descarga si no existe
     output_path = Path(args.output).expanduser().resolve()
-    output_path.mkdir(parents=True,
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    print(f"📥 URL: {args.url}")
+    print(f"🎥 Calidad: {args.quality}")
+    print(f"📂 Destino: {output_path}")
+    print("-" * 50)
+    
+    # Inicializar downloader (extendido si está disponible)
+    downloader = AnimeDownloader(
+        output_path=str(output_path),
+        quality=args.quality,
+        max_retries=Config.MAX_RETRIES,
+        concurrent_downloads=1
+    )
+    
+    # Verificar qué tipo de sitio es
+    if EXTENDED_MODE:
+        extractor_name = downloader.can_handle_url(args.url)
+        if extractor_name:
+            print(f"🎌 Sitio detectado: {extractor_name.upper()}")
+        else:
+            print("📺 Sitio estándar detectado")
+    
+    try:
+        # Solo obtener información si se solicita
+        if args.info:
+            print("ℹ️  Obteniendo información del video...")
+            info = downloader.get_video_info(args.url)
+            
+            if info:
+                print("\n📋 INFORMACIÓN DEL VIDEO:")
+                print(f"  Título: {info.get('title', 'N/A')}")
+                print(f"  Uploader: {info.get('uploader', 'N/A')}")
+                print(f"  Duración: {info.get('duration', 0)} segundos")
+                print(f"  Fuente: {info.get('source', 'N/A')}")
+                
+                if EXTENDED_MODE and 'video_urls_count' in info:
+                    print(f"  URLs encontradas: {info['video_urls_count']}")
+                
+                if info.get('description'):
+                    desc = info['description'][:200]
+                    print(f"  Descripción: {desc}{'...' if len(info['description']) > 200 else ''}")
+            else:
+                print("❌ No se pudo obtener información del video")
+                sys.exit(1)
+            return
+        
+        # Realizar descarga
+        print("🚀 Iniciando descarga...")
+        success = downloader.download_episode(args.url)
+        
+        if success:
+            print("✅ Descarga completada exitosamente!")
+            print(f"📁 Archivo guardado en: {output_path}")
+        else:
+            print("❌ Error en la descarga. Revisa los logs para más detalles.")
+            sys.exit(1)
+            
+    except KeyboardInterrupt:
+        print("\n🛑 Descarga cancelada por el usuario.")
+        sys.exit(0)
+    except Exception as e:
+        print(f"❌ Error inesperado: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+def list_supported_sites():
+    """Lista todos los sitios web soportados"""
+    print("🌐 SITIOS WEB SOPORTADOS:\n")
+    
+    if EXTENDED_MODE:
+        try:
+            downloader = AnimeDownloader()
+            supported = downloader.list_supported_sites()
+            
+            print("🎌 SITIOS DE ANIME ESPECÍFICOS:")
+            if supported['custom_extractors']:
+                for site in supported['custom_extractors']:
+                    if site == 'jkanime':
+                        print("  ✅ JKAnime (jkanime.net)")
+                        print("      - Ejemplo: https://jkanime.net/dandadan-2nd-season/12/")
+                    else:
+                        print(f"  ✅ {site}")
+            else:
+                print("  ❌ Ningún extractor personalizado disponible")
+            
+            print("\n📺 SITIOS ESTÁNDAR (via yt-dlp):")
+            for site in supported['standard']:
+                print(f"  ✅ {site}")
+                
+        except Exception as e:
+            print(f"❌ Error listando sitios: {e}")
+    else:
+        print("📺 SITIOS ESTÁNDAR (via yt-dlp):")
+        standard_sites = [
+            'youtube.com', 'youtu.be', 'vimeo.com',
+            'dailymotion.com', 'twitch.tv', 'facebook.com',
+            'twitter.com', 'instagram.com', 'tiktok.com'
+        ]
+        
+        for site in standard_sites:
+            print(f"  ✅ {site}")
+        
+        print("\n⚠️  Para soporte de sitios de anime específicos:")
+        print("   Instala los extractores personalizados creando:")
+        print("   - extractors/jkanime.py")
+        print("   - downloader_extended.py")
+    
+    print(f"\n💡 Total de extractores personalizados: {len(AnimeDownloader().custom_extractors) if EXTENDED_MODE else 0}")
+    print("💡 Para más sitios, revisa: https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md")
+
+if __name__ == "__main__":
+    main()
