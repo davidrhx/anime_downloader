@@ -28,34 +28,16 @@ Un downloader de anime simple, eficiente y fácil de usar con interfaz gráfica 
 ### Opción 1: Script Automático (Recomendado)
 
 ```bash
-git clone https://github.com/TU_USUARIO/anime-downloader.git
-cd anime-downloader
+[git clone https://github.com/davidrhx/anime_downloader]
+cd anime_downloader
 chmod +x install.sh
 ./install.sh
-```
-
-### Opción 2: Instalación Manual
-
-```bash
-git clone https://github.com/TU_USUARIO/anime-downloader.git
-cd anime-downloader
-
-# Crear entorno virtual
-python3 -m venv anime-downloader-env
-source anime-downloader-env/bin/activate  # Linux/macOS
-# o: anime-downloader-env\Scripts\activate  # Windows
-
-# Instalar dependencias
-pip install -r requirements.txt
-
-# ¡Listo para usar!
-python main.py --help
 ```
 
 ### Opción 3: Con pip (Próximamente)
 
 ```bash
-pip install git+https://github.com/TU_USUARIO/anime-downloader.git
+pip install git+https://github.com/davidrhx/anime_downloader
 ```
 
 ## 🎮 Ejemplos de Uso
