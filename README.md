@@ -9,7 +9,7 @@ Un downloader de anime simple, eficiente y fácil de usar con interfaz gráfica 
 
 ## Instalación Rápida
 ```bash
-git clone https://github.com/TU_USUARIO/anime-downloader.git
+https://github.com/davidrhx/anime_downloader
 cd anime-downloader
 chmod +x install.sh
 ./install.sh
